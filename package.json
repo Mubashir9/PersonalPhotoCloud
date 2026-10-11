@@ -1,0 +1,23 @@
+{
+  "name": "personal-photo-cloud",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "server",
+    "app"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=server",
+    "dev:app": "npm run start --workspace=app",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:server": "npm run test --workspace=server",
+    "test:app": "npm run test --workspace=app"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3"
+  }
+}
+

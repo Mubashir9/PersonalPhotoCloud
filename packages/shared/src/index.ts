@@ -92,6 +92,40 @@ export const UploadStatusResponseSchema = z.object({
 });
 export type UploadStatusResponse = z.infer<typeof UploadStatusResponseSchema>;
 
+// Phase 4: Albums Schemas
+export const AlbumTypeSchema = z.enum(["manual", "smart", "source"]);
+export type AlbumType = z.infer<typeof AlbumTypeSchema>;
+
+export const AlbumSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  type: AlbumTypeSchema,
+  itemCount: z.number().default(0),
+  coverMediaId: z.string().optional().nullable(),
+  coverThumbnailUrl: z.string().optional().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Album = z.infer<typeof AlbumSchema>;
+
+export const AlbumListResponseSchema = z.object({
+  albums: z.array(AlbumSchema),
+});
+export type AlbumListResponse = z.infer<typeof AlbumListResponseSchema>;
+
+export const CreateAlbumRequestSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  mediaIds: z.array(z.string()).optional(),
+});
+export type CreateAlbumRequest = z.infer<typeof CreateAlbumRequestSchema>;
+
+export const AddAlbumItemsRequestSchema = z.object({
+  mediaIds: z.array(z.string()).min(1),
+});
+export type AddAlbumItemsRequest = z.infer<typeof AddAlbumItemsRequestSchema>;
+
 
 
 

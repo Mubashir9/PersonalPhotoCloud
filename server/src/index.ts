@@ -6,9 +6,17 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import dotenv from "dotenv";
-import { HealthResponse, ServerStatus, MediaTypeFilter } from "@personal-photo-cloud/shared";
+import {
+  HealthResponse,
+  ServerStatus,
+  MediaTypeFilter,
+  AlbumListResponse,
+  CreateAlbumRequest,
+  AddAlbumItemsRequest,
+} from "@personal-photo-cloud/shared";
 import { initDatabase } from "./db.js";
 import { MediaRepository } from "./mediaRepository.js";
+import { AlbumRepository } from "./albumRepository.js";
 import { scanLibrary } from "./scanner.js";
 import { getOrCreateThumbnail } from "./thumbnail.js";
 import QRCode from "qrcode";
@@ -36,6 +44,7 @@ export function buildServer(options?: { dbPath?: string; libraryRoot?: string })
 
   const db = initDatabase(dbPath);
   const mediaRepo = new MediaRepository(db);
+  const albumRepo = new AlbumRepository(db);
 
   // Scan library on start
   scanLibrary(libraryRoot, mediaRepo);
@@ -553,7 +562,116 @@ export function buildServer(options?: { dbPath?: string; libraryRoot?: string })
     };
   });
 
+  // Phase 4: Albums API
+  app.get("/api/v1/albums", async (): Promise<AlbumListResponse> => {
+    const albums = albumRepo.list();
+    return { albums };
+  });
+
+  app.post<{
+    Body: CreateAlbumRequest;
+  }>("/api/v1/albums", async (req, reply) => {
+    const { name, description, mediaIds } = req.body || {};
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
+      return reply.code(400).send({ error: "INVALID_NAME", message: "Album name is required" });
+    }
+    const album = albumRepo.createManualAlbum(name.trim(), description, mediaIds);
+    return reply.code(201).send(album);
+  });
+
+  app.get<{
+    Params: { id: string };
+  }>("/api/v1/albums/:id", async (req, reply) => {
+    const album = albumRepo.findById(req.params.id);
+    if (!album) {
+      return reply.code(404).send({ error: "ALBUM_NOT_FOUND", message: "Album not found" });
+    }
+    return album;
+  });
+
+  app.get<{
+    Params: { id: string };
+    Querystring: { limit?: string; cursor?: string };
+  }>("/api/v1/albums/:id/media", async (req, reply) => {
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+    try {
+      const result = albumRepo.getMedia(req.params.id, limit, req.query.cursor);
+      return result;
+    } catch (err: any) {
+      if (err.message === "ALBUM_NOT_FOUND") {
+        return reply.code(404).send({ error: "ALBUM_NOT_FOUND", message: "Album not found" });
+      }
+      throw err;
+    }
+  });
+
+  app.post<{
+    Params: { id: string };
+    Body: AddAlbumItemsRequest;
+  }>("/api/v1/albums/:id/items", async (req, reply) => {
+    const { mediaIds } = req.body || {};
+    if (!Array.isArray(mediaIds) || mediaIds.length === 0) {
+      return reply.code(400).send({ error: "INVALID_ITEMS", message: "mediaIds array is required" });
+    }
+    try {
+      const result = albumRepo.addItems(req.params.id, mediaIds);
+      return result;
+    } catch (err: any) {
+      if (err.message === "ALBUM_NOT_FOUND") {
+        return reply.code(404).send({ error: "ALBUM_NOT_FOUND", message: "Album not found" });
+      }
+      if (err.message === "CANNOT_MODIFY_SMART_ALBUM") {
+        return reply.code(400).send({
+          error: "CANNOT_MODIFY_SMART_ALBUM",
+          message: "Cannot manually add items to a smart or source album",
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.delete<{
+    Params: { id: string; mediaId: string };
+  }>("/api/v1/albums/:id/items/:mediaId", async (req, reply) => {
+    try {
+      albumRepo.removeItem(req.params.id, req.params.mediaId);
+      return { status: "ok" };
+    } catch (err: any) {
+      if (err.message === "ALBUM_NOT_FOUND") {
+        return reply.code(404).send({ error: "ALBUM_NOT_FOUND", message: "Album not found" });
+      }
+      if (err.message === "CANNOT_MODIFY_SMART_ALBUM") {
+        return reply.code(400).send({
+          error: "CANNOT_MODIFY_SMART_ALBUM",
+          message: "Cannot manually remove items from a smart or source album",
+        });
+      }
+      throw err;
+    }
+  });
+
+  app.delete<{
+    Params: { id: string };
+  }>("/api/v1/albums/:id", async (req, reply) => {
+    try {
+      albumRepo.deleteAlbum(req.params.id);
+      return { status: "ok" };
+    } catch (err: any) {
+      if (err.message === "ALBUM_NOT_FOUND") {
+        return reply.code(404).send({ error: "ALBUM_NOT_FOUND", message: "Album not found" });
+      }
+      if (err.message === "CANNOT_DELETE_DEFAULT_ALBUM") {
+        return reply.code(400).send({
+          error: "CANNOT_DELETE_DEFAULT_ALBUM",
+          message: "Cannot delete built-in default albums",
+        });
+      }
+      throw err;
+    }
+  });
+
   (app as any).db = db;
+  (app as any).albumRepo = albumRepo;
 
   return app;
 }

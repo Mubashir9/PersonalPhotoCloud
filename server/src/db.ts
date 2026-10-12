@@ -55,6 +55,36 @@ export function initDatabase(dbPath: string): Database.Database {
       status TEXT NOT NULL DEFAULT 'uploading',
       created_timestamp TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS albums (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      type TEXT NOT NULL CHECK(type IN ('manual', 'smart', 'source')),
+      cover_media_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS album_items (
+      album_id TEXT NOT NULL,
+      media_id TEXT NOT NULL,
+      added_at TEXT NOT NULL,
+      PRIMARY KEY (album_id, media_id),
+      FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE,
+      FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_album_items_album ON album_items(album_id, added_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_album_items_media ON album_items(media_id);
+
+    CREATE TABLE IF NOT EXISTS smart_album_rules (
+      album_id TEXT PRIMARY KEY,
+      rule_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
+    );
   `);
 
   return db;

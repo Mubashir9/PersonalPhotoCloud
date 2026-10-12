@@ -64,6 +64,40 @@ function extractVideoFrame(
   });
 }
 
+export class ConcurrencyLimiter {
+  private active = 0;
+  private queue: (() => void)[] = [];
+
+  constructor(public readonly limit: number) {}
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.active >= this.limit) {
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    }
+    this.active++;
+    try {
+      return await fn();
+    } finally {
+      this.active--;
+      const next = this.queue.shift();
+      if (next) {
+        next();
+      }
+    }
+  }
+
+  get activeCount(): number {
+    return this.active;
+  }
+
+  get pendingCount(): number {
+    return this.queue.length;
+  }
+}
+
+export const videoThumbnailLimiter = new ConcurrencyLimiter(2);
+export const photoThumbnailLimiter = new ConcurrencyLimiter(4);
+
 export async function getOrCreateThumbnail(
   sourcePath: string,
   thumbnailCacheDir: string,
@@ -90,37 +124,47 @@ export async function getOrCreateThumbnail(
   const height = options.height || 300;
 
   if (VIDEO_EXTENSIONS.has(ext)) {
-    try {
-      const tempFramePath = path.join(thumbnailCacheDir, `${mediaId}_frame.jpg`);
-      await extractVideoFrame(sourcePath, tempFramePath, width, height);
-
-      if (fs.existsSync(tempFramePath)) {
-        await sharp(tempFramePath)
-          .webp({ quality: options.quality || 80 })
-          .toFile(thumbPath);
-        fs.unlinkSync(tempFramePath);
+    return videoThumbnailLimiter.run(async () => {
+      if (fs.existsSync(thumbPath)) {
         return thumbPath;
       }
-      return null;
+      try {
+        const tempFramePath = path.join(thumbnailCacheDir, `${mediaId}_frame.jpg`);
+        await extractVideoFrame(sourcePath, tempFramePath, width, height);
+
+        if (fs.existsSync(tempFramePath)) {
+          await sharp(tempFramePath)
+            .webp({ quality: options.quality || 80 })
+            .toFile(thumbPath);
+          fs.unlinkSync(tempFramePath);
+          return thumbPath;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    });
+  }
+
+  return photoThumbnailLimiter.run(async () => {
+    if (fs.existsSync(thumbPath)) {
+      return thumbPath;
+    }
+    try {
+      // Generate webp thumbnail for photos
+      await sharp(sourcePath)
+        .rotate() // Auto-orient based on EXIF
+        .resize(width, height, {
+          fit: "cover",
+          position: "centre",
+        })
+        .webp({ quality: options.quality || 80 })
+        .toFile(thumbPath);
+
+      return thumbPath;
     } catch {
       return null;
     }
-  }
-
-  try {
-    // Generate webp thumbnail for photos
-    await sharp(sourcePath)
-      .rotate() // Auto-orient based on EXIF
-      .resize(width, height, {
-        fit: "cover",
-        position: "centre",
-      })
-      .webp({ quality: options.quality || 80 })
-      .toFile(thumbPath);
-
-    return thumbPath;
-  } catch {
-    return null;
-  }
+  });
 }
 

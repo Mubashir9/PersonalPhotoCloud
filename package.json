@@ -8,6 +8,7 @@
     "app"
   ],
   "scripts": {
+    "start": "npm run dev:app",
     "dev:server": "npm run dev --workspace=server",
     "dev:app": "npm run start --workspace=app",
     "build": "npm run build --workspaces --if-present",

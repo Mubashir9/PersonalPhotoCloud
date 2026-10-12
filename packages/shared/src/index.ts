@@ -41,6 +41,9 @@ export const MediaListResponseSchema = z.object({
 });
 export type MediaListResponse = z.infer<typeof MediaListResponseSchema>;
 
+export const MediaTypeFilterSchema = z.enum(["all", "photo", "video"]);
+export type MediaTypeFilter = z.infer<typeof MediaTypeFilterSchema>;
+
 export const CandidateAssetSchema = z.object({
   sourceAssetId: z.string(),
   originalFilename: z.string(),

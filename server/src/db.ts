@@ -40,6 +40,7 @@ export function initDatabase(dbPath: string): Database.Database {
     );
 
     CREATE INDEX IF NOT EXISTS idx_media_created_at ON media(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_media_type_created_at ON media(media_type, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_media_relative_path ON media(relative_path);
     CREATE INDEX IF NOT EXISTS idx_media_sha256 ON media(sha256);
 

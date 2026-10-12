@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { MediaItem } from "@personal-photo-cloud/shared";
+import { MediaItem, MediaTypeFilter } from "@personal-photo-cloud/shared";
 
 export interface MediaRow {
   id: string;
@@ -123,34 +123,68 @@ export class MediaRepository {
     return { count: row.count, totalBytes: row.totalBytes };
   }
 
-  list(limit = 100, cursor?: string): { items: MediaItem[]; nextCursor?: string } {
+  list(
+    limit = 100,
+    cursor?: string,
+    mediaType?: MediaTypeFilter
+  ): { items: MediaItem[]; nextCursor?: string } {
+    const isFiltered = mediaType && mediaType !== "all";
     let rows: MediaRow[];
+
     if (cursor) {
       const cursorRow = this.findById(cursor);
       if (cursorRow) {
-        rows = this.db
-          .prepare(
-            `SELECT * FROM media 
-             WHERE (created_at < @createdAt) OR (created_at = @createdAt AND id < @id)
-             ORDER BY created_at DESC, id DESC
-             LIMIT @limit`
-          )
-          .all({
-            createdAt: cursorRow.created_at,
-            id: cursorRow.id,
-            limit: limit + 1,
-          }) as MediaRow[];
+        if (isFiltered) {
+          rows = this.db
+            .prepare(
+              `SELECT * FROM media 
+               WHERE media_type = @mediaType
+                 AND ((created_at < @createdAt) OR (created_at = @createdAt AND id < @id))
+               ORDER BY created_at DESC, id DESC
+               LIMIT @limit`
+            )
+            .all({
+              mediaType,
+              createdAt: cursorRow.created_at,
+              id: cursorRow.id,
+              limit: limit + 1,
+            }) as MediaRow[];
+        } else {
+          rows = this.db
+            .prepare(
+              `SELECT * FROM media 
+               WHERE (created_at < @createdAt) OR (created_at = @createdAt AND id < @id)
+               ORDER BY created_at DESC, id DESC
+               LIMIT @limit`
+            )
+            .all({
+              createdAt: cursorRow.created_at,
+              id: cursorRow.id,
+              limit: limit + 1,
+            }) as MediaRow[];
+        }
       } else {
         rows = [];
       }
     } else {
-      rows = this.db
-        .prepare(
-          `SELECT * FROM media 
-           ORDER BY created_at DESC, id DESC
-           LIMIT ?`
-        )
-        .all(limit + 1) as MediaRow[];
+      if (isFiltered) {
+        rows = this.db
+          .prepare(
+            `SELECT * FROM media 
+             WHERE media_type = ?
+             ORDER BY created_at DESC, id DESC
+             LIMIT ?`
+          )
+          .all(mediaType, limit + 1) as MediaRow[];
+      } else {
+        rows = this.db
+          .prepare(
+            `SELECT * FROM media 
+             ORDER BY created_at DESC, id DESC
+             LIMIT ?`
+          )
+          .all(limit + 1) as MediaRow[];
+      }
     }
 
     const hasMore = rows.length > limit;

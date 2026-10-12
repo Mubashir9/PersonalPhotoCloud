@@ -167,4 +167,29 @@ test("GET /pair returns HTML page with pairing QR code", async () => {
   assert.ok(pairRes.body.includes("Pair iPhone"));
 });
 
+test("GET /api/v1/media supports filtering by mediaType", async () => {
+  const app = buildServer();
+  const photoRes = await app.inject({
+    method: "GET",
+    url: "/api/v1/media?mediaType=photo",
+  });
+  assert.equal(photoRes.statusCode, 200);
+  const photoJson = photoRes.json();
+  assert.ok(Array.isArray(photoJson.items));
+  for (const item of photoJson.items) {
+    assert.equal(item.mediaType, "photo");
+  }
+
+  const videoRes = await app.inject({
+    method: "GET",
+    url: "/api/v1/media?mediaType=video",
+  });
+  assert.equal(videoRes.statusCode, 200);
+  const videoJson = videoRes.json();
+  assert.ok(Array.isArray(videoJson.items));
+  for (const item of videoJson.items) {
+    assert.equal(item.mediaType, "video");
+  }
+});
+
 

@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import dotenv from "dotenv";
-import { HealthResponse, ServerStatus } from "@personal-photo-cloud/shared";
+import { HealthResponse, ServerStatus, MediaTypeFilter } from "@personal-photo-cloud/shared";
 import { initDatabase } from "./db.js";
 import { MediaRepository } from "./mediaRepository.js";
 import { scanLibrary } from "./scanner.js";
@@ -170,11 +170,12 @@ export function buildServer(options?: { dbPath?: string; libraryRoot?: string })
 
   // List media endpoint
   app.get<{
-    Querystring: { limit?: string; cursor?: string };
+    Querystring: { limit?: string; cursor?: string; mediaType?: MediaTypeFilter };
   }>("/api/v1/media", async (req) => {
     const limit = req.query.limit ? Math.min(Math.max(Number(req.query.limit) || 50, 1), 200) : 50;
     const cursor = req.query.cursor;
-    return mediaRepo.list(limit, cursor);
+    const mediaType = req.query.mediaType;
+    return mediaRepo.list(limit, cursor, mediaType);
   });
 
   // Media detail endpoint

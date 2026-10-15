@@ -18,6 +18,10 @@ export interface MediaRow {
   thumbnail_path: string | null;
   source_device_asset_id: string | null;
   source_created_at: string | null;
+  source: string | null;
+  caption: string | null;
+  location: string | null;
+  metadata_json: string | null;
 }
 
 export class MediaRepository {
@@ -40,16 +44,22 @@ export class MediaRepository {
     thumbnailPath?: string | null;
     sourceDeviceAssetId?: string | null;
     sourceCreatedAt?: string | null;
+    source?: string | null;
+    caption?: string | null;
+    location?: string | null;
+    metadataJson?: string | null;
   }): void {
     const stmt = this.db.prepare(`
       INSERT INTO media (
         id, original_filename, stored_filename, relative_path, media_type,
         mime_type, byte_size, created_at, imported_at, width, height,
-        duration_ms, sha256, thumbnail_path, source_device_asset_id, source_created_at
+        duration_ms, sha256, thumbnail_path, source_device_asset_id, source_created_at,
+        source, caption, location, metadata_json
       ) VALUES (
         @id, @originalFilename, @storedFilename, @relativePath, @mediaType,
         @mimeType, @byteSize, @createdAt, @importedAt, @width, @height,
-        @durationMs, @sha256, @thumbnailPath, @sourceDeviceAssetId, @sourceCreatedAt
+        @durationMs, @sha256, @thumbnailPath, @sourceDeviceAssetId, @sourceCreatedAt,
+        @source, @caption, @location, @metadataJson
       )
       ON CONFLICT(relative_path) DO UPDATE SET
         original_filename = excluded.original_filename,
@@ -62,7 +72,11 @@ export class MediaRepository {
         height = excluded.height,
         duration_ms = excluded.duration_ms,
         sha256 = excluded.sha256,
-        thumbnail_path = excluded.thumbnail_path
+        thumbnail_path = excluded.thumbnail_path,
+        source = excluded.source,
+        caption = excluded.caption,
+        location = excluded.location,
+        metadata_json = excluded.metadata_json
     `);
 
     stmt.run({
@@ -82,6 +96,10 @@ export class MediaRepository {
       thumbnailPath: media.thumbnailPath ?? null,
       sourceDeviceAssetId: media.sourceDeviceAssetId ?? null,
       sourceCreatedAt: media.sourceCreatedAt ?? null,
+      source: media.source ?? "library",
+      caption: media.caption ?? null,
+      location: media.location ?? null,
+      metadataJson: media.metadataJson ?? null,
     });
   }
 
@@ -95,6 +113,12 @@ export class MediaRepository {
     return this.db
       .prepare(`SELECT * FROM media WHERE id = ?`)
       .get(id) as MediaRow | undefined;
+  }
+
+  findBySha256(sha256: string): MediaRow | undefined {
+    return this.db
+      .prepare(`SELECT * FROM media WHERE sha256 = ? LIMIT 1`)
+      .get(sha256) as MediaRow | undefined;
   }
 
   findByCandidate(candidate: {
@@ -203,6 +227,9 @@ export class MediaRepository {
       height: r.height,
       durationMs: r.duration_ms,
       thumbnailUrl: `/api/v1/media/${r.id}/thumbnail`,
+      source: r.source ?? undefined,
+      caption: r.caption,
+      location: r.location,
     }));
 
     return { items, nextCursor };

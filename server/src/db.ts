@@ -36,7 +36,11 @@ export function initDatabase(dbPath: string): Database.Database {
       sha256 TEXT,
       thumbnail_path TEXT,
       source_device_asset_id TEXT,
-      source_created_at TEXT
+      source_created_at TEXT,
+      source TEXT DEFAULT 'library',
+      caption TEXT,
+      location TEXT,
+      metadata_json TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_media_created_at ON media(created_at DESC);
@@ -86,6 +90,25 @@ export function initDatabase(dbPath: string): Database.Database {
       FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
     );
   `);
+
+  // Safe column migrations for existing media table
+  const tableInfo = db.prepare("PRAGMA table_info(media)").all() as Array<{ name: string }>;
+  const columnNames = new Set(tableInfo.map((col) => col.name));
+
+  if (!columnNames.has("source")) {
+    db.exec("ALTER TABLE media ADD COLUMN source TEXT DEFAULT 'library'");
+  }
+  if (!columnNames.has("caption")) {
+    db.exec("ALTER TABLE media ADD COLUMN caption TEXT");
+  }
+  if (!columnNames.has("location")) {
+    db.exec("ALTER TABLE media ADD COLUMN location TEXT");
+  }
+  if (!columnNames.has("metadata_json")) {
+    db.exec("ALTER TABLE media ADD COLUMN metadata_json TEXT");
+  }
+
+  db.exec("CREATE INDEX IF NOT EXISTS idx_media_source ON media(source);");
 
   return db;
 }

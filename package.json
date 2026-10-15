@@ -15,7 +15,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:server": "npm run test --workspace=server",
-    "test:app": "npm run test --workspace=app"
+    "test:app": "npm run test --workspace=app",
+    "import:snapchat": "tsx server/src/cli.ts import:snapchat"
   },
   "devDependencies": {
     "prettier": "^3.5.3"

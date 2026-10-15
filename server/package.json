@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "node --import tsx --test src/**/*.test.ts",
+    "import:snapchat": "tsx src/cli.ts import:snapchat",
     "lint": "echo \"No linter configured for server yet\""
   },
   "dependencies": {

@@ -32,6 +32,9 @@ export const MediaItemSchema = z.object({
   height: z.number().nullable().optional(),
   durationMs: z.number().nullable().optional(),
   thumbnailUrl: z.string().optional(),
+  source: z.string().optional(),
+  caption: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
 });
 export type MediaItem = z.infer<typeof MediaItemSchema>;
 

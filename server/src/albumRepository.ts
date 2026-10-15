@@ -15,7 +15,7 @@ export interface AlbumRow {
 
 export interface SmartRule {
   mediaType?: "photo" | "video";
-  source?: "phone" | "laptop";
+  source?: "phone" | "laptop" | "snapchat_memory";
 }
 
 export class AlbumRepository {
@@ -36,6 +36,9 @@ export class AlbumRepository {
       height: row.height,
       durationMs: row.duration_ms,
       thumbnailUrl: `/api/v1/media/${row.id}/thumbnail`,
+      source: row.source ?? undefined,
+      caption: row.caption,
+      location: row.location,
     };
   }
 
@@ -55,6 +58,10 @@ export class AlbumRepository {
     // Built-in Smart Album: Videos
     insertAlbum.run("smart-videos", "All Videos", "All video recordings in your library", "smart", now, now);
     insertRule.run("smart-videos", JSON.stringify({ mediaType: "video" }), now, now);
+
+    // Built-in Smart Album: Snapchat Memories
+    insertAlbum.run("smart-snapchat", "Snapchat Memories", "Saved Snapchat memories with original dates and captions", "smart", now, now);
+    insertRule.run("smart-snapchat", JSON.stringify({ source: "snapchat_memory" }), now, now);
 
     // Built-in Source Album: Phone Backups
     insertAlbum.run("source-phone", "Phone Backups", "Items uploaded from your mobile phone", "source", now, now);
@@ -153,7 +160,9 @@ export class AlbumRepository {
       if (rule?.source === "phone") {
         whereClause += " AND source_device_asset_id IS NOT NULL";
       } else if (rule?.source === "laptop") {
-        whereClause += " AND source_device_asset_id IS NULL";
+        whereClause += " AND source_device_asset_id IS NULL AND (source IS NULL OR source = 'library')";
+      } else if (rule?.source === "snapchat_memory") {
+        whereClause += " AND source = 'snapchat_memory'";
       }
 
       const countRow = this.db.prepare(`
@@ -239,7 +248,9 @@ export class AlbumRepository {
       if (rule?.source === "phone") {
         whereClause += " AND source_device_asset_id IS NOT NULL";
       } else if (rule?.source === "laptop") {
-        whereClause += " AND source_device_asset_id IS NULL";
+        whereClause += " AND source_device_asset_id IS NULL AND (source IS NULL OR source = 'library')";
+      } else if (rule?.source === "snapchat_memory") {
+        whereClause += " AND source = 'snapchat_memory'";
       }
 
       if (cursor) {
@@ -327,7 +338,7 @@ export class AlbumRepository {
     if (!album) throw new Error("ALBUM_NOT_FOUND");
 
     // Protect built-in default albums
-    if (["smart-videos", "source-phone", "source-laptop", "manual-favorites"].includes(albumId)) {
+    if (["smart-videos", "source-phone", "source-laptop", "manual-favorites", "smart-snapchat"].includes(albumId)) {
       throw new Error("CANNOT_DELETE_DEFAULT_ALBUM");
     }
 
